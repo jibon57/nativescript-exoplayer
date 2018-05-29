@@ -5,15 +5,23 @@ import { subtitleSourceProperty } from "./videoplayer-common";
 
 export * from "./videoplayer-common";
 
-declare const NSURL, NSDictionary, AVPlayer, AVPlayerItem, ASBPlayerSubtitling, AVAudioSession, AVAudioSessionCategoryPlayAndRecord, AVAudioSessionPortOverrideSpeaker, NSObjectAVPlayer, AVPlayerViewController, AVPlayerItemDidPlayToEndTimeNotification, UIView, UILabel, UIColor, CMTimeMakeWithSeconds, NSNotification, NSNotificationCenter, NSLayoutConstraint, NSLayoutFormatOptions, NSTextAlignmentCenter, CMTimeGetSeconds, CMTimeMake, kCMTimeZero, AVPlayerItemStatusReadyToPlay, AVAsset;
+declare const
+    NSURL,
+    NSDictionary,
+    AVPlayer,
+    ASBPlayerSubtitling,
+    AVPlayerViewController,
+    UIView,
+    UILabel,
+    CMTimeMake;
 
 export class Video extends videoCommon.Video {
     private _player: any; /// AVPlayer
     private _playerController: any; /// AVPlayerViewController
+    private _src: string;
     private _subtitling: any; //// ASBPlayerSubtitling
     private _subtitleLabel: any; //// UILabel
     private _subtitleLabelContainer: any; //// UIView
-    private _src: string;
     private _didPlayToEndTimeObserver: any;
     private _didPlayToEndTimeActive: boolean;
     private _observer: NSObject;
@@ -23,25 +31,26 @@ export class Video extends videoCommon.Video {
     private _playbackTimeObserverActive: boolean;
     private _videoPlaying: boolean;
     private _videoFinished: boolean;
+    private enableSubtitles: boolean = false;
     public nativeView: any;
 
     constructor() {
         super();
         this._playerController = new AVPlayerViewController();
-        
+
         let audioSession = AVAudioSession.sharedInstance();
         let output = audioSession.currentRoute.outputs.lastObject.portType;
         if (output.match(/Receiver/)) {
             try {
               audioSession.setCategoryError(AVAudioSessionCategoryPlayAndRecord);
-              audioSession.overrideOutputAudioPortError(AVAudioSessionPortOverrideSpeaker);
+              audioSession.overrideOutputAudioPortError(AVAudioSessionPortOverride.Speaker);
               audioSession.setActiveError(true);
               //console.log("audioSession category set and active");
             } catch (err) {
               //console.log("setting audioSession category failed");
             }
         }
-        
+
         this._player = new AVPlayer();
         this._playerController.player = this._player;
 
@@ -55,7 +64,7 @@ export class Video extends videoCommon.Video {
         // subtitles setup
         if (this.enableSubtitles) {
             this._subtitling = new ASBPlayerSubtitling();
-    
+
             this._setupSubtitleLabel();
         }
     }
@@ -65,15 +74,15 @@ export class Video extends videoCommon.Video {
     }
 
     [videoSourceProperty.setNative](value: AVPlayerItem) {
-        this._setNativeVideo(value ? value.ios : null);
+        this._setNativeVideo(value ? (<any>value).ios : null);
     }
 
     [subtitleSourceProperty.setNative](value: NSString) {
-        this._updateSubtitles(value ? value.ios : null);
+        this._updateSubtitles(value ? (<any>value).ios : null);
     }
 
     public _setNativeVideo(nativeVideoPlayer: any) {
-        console.log("Set native video: "+nativeVideoPlayer);
+        //console.log("Set native video: "+nativeVideoPlayer);
         if (nativeVideoPlayer != null) {
             let currentItem = this._player.currentItem;
             this._addStatusObserver(nativeVideoPlayer);
@@ -103,7 +112,7 @@ export class Video extends videoCommon.Video {
         this._src = nativePlayerSrc;
         let url: string = NSURL.URLWithString(this._src);
         this._player = new AVPlayer(url);
-        console.log("Video src: "+ this._src);
+        //console.log("Video src: "+ this._src);
         this._init();
     }
 
@@ -114,7 +123,7 @@ export class Video extends videoCommon.Video {
 
         this._playerController.player = this._player;
 
-        if (isNaN(this.width) || isNaN(this.height)) {
+        if (isNaN(<any>this.width) || isNaN(<any>this.height)) {
             this.requestLayout();
         }
 
@@ -132,7 +141,7 @@ export class Video extends videoCommon.Video {
             this._subtitling.label = this._subtitleLabel;
             this._subtitling.containerView = this._subtitleLabelContainer;
             this._subtitling.player = this._player;
-        }    
+        }
     }
 
     private _setupSubtitleLabel(){
@@ -153,13 +162,13 @@ export class Video extends videoCommon.Video {
         this._subtitleLabelContainer.translatesAutoresizingMaskIntoConstraints = false;
         let containerViewsDictionary = new NSDictionary([this._subtitleLabel], ['subtitleLabel']);
 
-        this._subtitleLabelContainer.addConstraints(NSLayoutConstraint.constraintsWithVisualFormatOptionsMetricsViews("H:|-(5)-[subtitleLabel]-(5)-|", NSLayoutFormatDirectionLeadingToTrailing , null, containerViewsDictionary));
-        this._subtitleLabelContainer.addConstraints(NSLayoutConstraint.constraintsWithVisualFormatOptionsMetricsViews("V:|-(0)-[subtitleLabel]-(0)-|", NSLayoutFormatDirectionLeadingToTrailing , null, containerViewsDictionary));
+        this._subtitleLabelContainer.addConstraints(NSLayoutConstraint.constraintsWithVisualFormatOptionsMetricsViews("H:|-(5)-[subtitleLabel]-(5)-|", NSLayoutFormatOptions.DirectionLeadingToTrailing, null, containerViewsDictionary));
+        this._subtitleLabelContainer.addConstraints(NSLayoutConstraint.constraintsWithVisualFormatOptionsMetricsViews("V:|-(0)-[subtitleLabel]-(0)-|", NSLayoutFormatOptions.DirectionLeadingToTrailing , null, containerViewsDictionary));
 
 
         this._subtitleLabel.textColor = UIColor.whiteColor;
-        this._subtitleLabel.textAlignment = NSTextAlignmentCenter;
-        this._subtitleLabel.lineBreakMode = NSLineBreakByWordWrapping;
+        this._subtitleLabel.textAlignment = NSTextAlignment.Center;
+        this._subtitleLabel.lineBreakMode = NSLineBreakMode.ByWordWrapping;
         this._subtitleLabel.font = UIFont.systemFontOfSizeWeight(15, UIFontWeightRegular);
         this._subtitleLabel.numberOfLines = 0;
 
@@ -169,7 +178,7 @@ export class Video extends videoCommon.Video {
         // make 20 point insets from sides
         contentOverlayView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormatOptionsMetricsViews("H:|-(>=20)-[subtitleLabelContainer]-(>=20)-|", 0 , null, viewsDictionary));
         // center text
-        contentOverlayView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormatOptionsMetricsViews("V:[superview]-(<=1)-[subtitleLabelContainer]",  NSLayoutFormatAlignAllCenterX , null, viewsDictionary));
+        contentOverlayView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormatOptionsMetricsViews("V:[superview]-(<=1)-[subtitleLabelContainer]",  NSLayoutFormatOptions.AlignAllCenterX, null, viewsDictionary));
         // add 30 point margin from bottom
         contentOverlayView.addConstraints(NSLayoutConstraint.constraintsWithVisualFormatOptionsMetricsViews("V:[subtitleLabelContainer]-(20)-|", 0, null, viewsDictionary));
     }
@@ -181,7 +190,7 @@ export class Video extends videoCommon.Video {
             } catch (e) {
                 console.log("Failed to load subtitles: " + e); // NSError:
             }
-        }    
+        }
     }
 
     private AVPlayerItemDidPlayToEndTimeNotification(notification: any) {
@@ -223,11 +232,19 @@ export class Video extends videoCommon.Video {
     }
 
     public seekToTime(ms: number) {
-        let seconds = ms / 1000.0;
-        let time = CMTimeMakeWithSeconds(seconds, this._player.currentTime().timescale);
-        this._player.seekToTimeToleranceBeforeToleranceAfterCompletionHandler(time, kCMTimeZero, kCMTimeZero, (isFinished) => {
-            this._emit(videoCommon.Video.seekToTimeCompleteEvent);
-        });
+        if (this._player.currentItem && this._player.currentItem.status === AVPlayerItemStatus.ReadyToPlay) {
+            let seconds = ms / 1000.0;
+            let time = CMTimeMakeWithSeconds(seconds, this._player.currentTime().timescale);
+            try {
+                this._player.seekToTimeToleranceBeforeToleranceAfterCompletionHandler(time, kCMTimeZero, kCMTimeZero, (isFinished) => {
+                    this._emit(videoCommon.Video.seekToTimeCompleteEvent);
+                });
+            } catch (e) {
+                console.error(e);
+            }
+        } else {
+            console.log("AVPlayerItem cannot service a seek request with a completion handler until its status is ReadyToPlay.")
+        }
     }
 
     public getDuration(): number {
@@ -272,8 +289,13 @@ export class Video extends videoCommon.Video {
     }
 
     private _removeStatusObserver(currentItem) {
+        // If the observer is active, then we need to remove it...
+        if (!this._observerActive) { return; }
+
         this._observerActive = false;
-        currentItem.removeObserverForKeyPath(this._observer, "status");
+        if (currentItem) {
+            currentItem.removeObserverForKeyPath(this._observer, "status");
+        }
     }
 
     private _addPlaybackTimeObserver() {
@@ -316,7 +338,7 @@ export class Video extends videoCommon.Video {
 class PlayerObserverClass extends NSObject {
     observeValueForKeyPathOfObjectChangeContext(path: string, obj: Object, change: NSDictionary<any, any>, context: any) {
         if (path === "status") {
-            if (this["_owner"]._player.currentItem.status === AVPlayerItemStatusReadyToPlay && !this["_owner"]._videoLoaded) {
+            if (this["_owner"]._player.currentItem.status === AVPlayerItemStatus.ReadyToPlay && !this["_owner"]._videoLoaded) {
                 this["_owner"].playbackReady();
             }
         }

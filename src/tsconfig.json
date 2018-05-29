@@ -2,15 +2,15 @@
     "compilerOptions": {
         "module": "commonjs",
         "target": "es5",
+        "sourceMap": false,
         "noImplicitAny": false,
         "removeComments": true,
         "preserveConstEnums": true,
-        "sourceMap": false,
         "declaration": false,
         "noLib": false,
         "noEmitHelpers": true,
         "experimentalDecorators": true,
-	    "noEmitOnError": false,
+        "noEmitOnError": false,
         "lib": [
             "es6",
             "dom"
@@ -18,25 +18,26 @@
         "baseUrl": ".",
         "paths": {
             "*": [
-                "./demo/node_modules/tns-core-modules/*",
-                "./demo/node_modules/*"
+                "./node_modules/tns-core-modules/*",
+                "./node_modules/*"
             ]
-        }
+        },
+      "skipLibCheck": true
     },
-    "typeRoots": [
-            "./node_modules/@types",
-            "./node_modules"
-        ],
     "files": [
+        // reference
+        "node_modules/tns-platform-declarations/android.d.ts",
+        "node_modules/tns-platform-declarations/ios.d.ts",
+        // sources
         "videoplayer-common.ts",
         "videoplayer.ios.ts",
         "videoplayer.android.ts",
-        "video-source/video-source-common.ts",
-        "video-source/video-source.ios.ts",
-        "video-source/video-source.android.ts",
         "subtitle-source/subtitle-source-common.ts",
         "subtitle-source/subtitle-source.ios.ts",
-        "subtitle-source/subtitle-source.android.ts"
+        "subtitle-source/subtitle-source.android.ts",
+        "video-source/video-source-common.ts",
+        "video-source/video-source.ios.ts",
+        "video-source/video-source.android.ts"
     ],
     "exclude": [
         "node_modules",

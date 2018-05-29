@@ -4,12 +4,18 @@ import { subtitleSourceProperty } from "./videoplayer-common";
 //import videoSource = require("./video-source/video-source");
 //import timer = require("timer");
 import utils = require("utils/utils");
+const application = require('application');
 
 export * from "./videoplayer-common";
 
 declare const android: any, com: any;
 
-const STATE_IDLE: number = 0;
+// States from Exo Player
+const STATE_IDLE: number = 1;
+const STATE_BUFFERING: number = 2;
+const STATE_READY: number = 3;
+const STATE_ENDED: number = 4;
+
 const SURFACE_WAITING: number = 0;
 const SURFACE_READY: number = 1;
 
@@ -33,8 +39,13 @@ export class Video extends videoCommon.Video {
 	private lastTimerUpdate: number;
 	private interval: number;
 	private _suspendLocation: number;
-	public TYPE = { DETECT: 0, SS: 1, DASH: 2, HLS: 3, OTHER: 4 };
+    private _boundStart = this.resumeEvent.bind(this);
+    private _boundStop = this.suspendEvent.bind(this);
+    private enableSubtitles: boolean = false;
+
+    public TYPE = { DETECT: 0, SS: 1, DASH: 2, HLS: 3, OTHER: 4 };
 	public nativeView: any;
+
 
 	constructor() {
 		super();
@@ -59,7 +70,7 @@ export class Video extends videoCommon.Video {
 		this.eventPlaybackStart = false;
 		this.lastTimerUpdate = -1;
 		this.interval = null;
-	}
+    }
 
 	get playState(): any {
 		if (!this.mediaPlayer) { return STATE_IDLE; }
@@ -115,7 +126,7 @@ export class Video extends videoCommon.Video {
 			this._subtitlesView.setUserDefaultStyle();
 			this._subtitlesView.setUserDefaultTextSize();
 			nativeView.addView(this._subtitlesView);
-		}	
+		}
 
 
 		return nativeView;
@@ -174,9 +185,23 @@ export class Video extends videoCommon.Video {
 				}
 			}
 		));
-	}
 
-	public toggleMediaControllerVisibility(): void {
+        application.on(application.suspendEvent, this._boundStop);
+        application.on(application.resumeEvent, this._boundStart);
+
+    }
+
+    public disposeNativeView()
+    {
+        this.disableEventTracking();
+    }
+
+    public disableEventTracking() {
+        application.off(application.suspendEvent, this._boundStop);
+        application.off(application.resumeEvent, this._boundStart);
+    }
+
+    public toggleMediaControllerVisibility(): void {
 		if (!this.mediaController || !this.mediaPlayer) { return; }
 		if (this.mediaController.isVisible()) {
 			this.mediaController.hide();
@@ -232,7 +257,7 @@ export class Video extends videoCommon.Video {
 				// 3 = Ready
 				// 4 = Ended
 
-				if (playbackState === 3) {
+				if (playbackState === STATE_READY) {
 
 					// We have to fire this from here in the event the textureSurface isn't set yet...
 					if (!this.owner.textureSurfaceSet && !this.owner.eventPlaybackReady) {
@@ -249,7 +274,7 @@ export class Video extends videoCommon.Video {
 						// this.owner._emit(videoCommon.Video.playbackStartEvent);
 					}
 				}
-				else if (playbackState === 4) {
+				else if (playbackState === STATE_ENDED) {
 					if (!this.owner.loop) {
 						this.owner.eventPlaybackStart = false;
 						this.owner.stopCurrentTimer();
@@ -264,10 +289,16 @@ export class Video extends videoCommon.Video {
 			onPositionDiscontinuity: function () {
 				// Do nothing
 			},
+			onSeekProcessed: function () {
+				// Do nothing
+			},
 			onTimelineChanged: function (/* timeline, manifest */) {
 				// Do nothing
 			},
 			onTracksChanged: function (/* trackGroups, trackSelections */) {
+				// Do nothing
+			},
+			onSeekProcessed: function(){
 				// Do nothing
 			}
 		});
@@ -365,7 +396,7 @@ export class Video extends videoCommon.Video {
 			if (this.enableSubtitles) {
 				//subtitles view
 				this.mediaPlayer.setTextOutput(this._subtitlesView);
-			}	
+			}
 
 
 			let dsf = new com.google.android.exoplayer2.upstream.DefaultDataSourceFactory(this._context, "NativeScript", bm);
@@ -495,15 +526,14 @@ export class Video extends videoCommon.Video {
 				this.preSeekTime = this.mediaPlayer.getCurrentPosition();
 			}
 			this._openVideo();
-		}	
+		}
 	}
 
 	public play(): void {
-		if (!this.mediaPlayer) { return; }
-		if (this.mediaState === SURFACE_WAITING) {
+		if (!this.mediaPlayer || this.mediaState === SURFACE_WAITING) {
 			this._openVideo();
 		}
-		else if (this.playState === 4) {
+		else if (this.playState === STATE_ENDED) {
 			this.eventPlaybackStart = false;
 			this.mediaPlayer.seekToDefaultPosition();
 			this.startCurrentTimer();
@@ -558,7 +588,10 @@ export class Video extends videoCommon.Video {
 
 	public isPlaying(): boolean {
 		if (!this.mediaPlayer) { return false; }
-		return this.mediaPlayer.isPlaying();
+		if (this.playState === STATE_READY) {
+		    return this.mediaPlayer.getPlayWhenReady();
+        }
+		return false;
 	}
 
 	public getDuration(): number {
@@ -628,7 +661,7 @@ export class Video extends videoCommon.Video {
 			return;
 		}
 		this.lastTimerUpdate = -1;
-		this.interval = setInterval(() => {
+		this.interval = <any>setInterval(() => {
 			this.fireCurrentTimeEvent();
 		}, 200);
 	}
